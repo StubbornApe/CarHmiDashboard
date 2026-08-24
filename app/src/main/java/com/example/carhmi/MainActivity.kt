@@ -14,5 +14,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        binding.speedometerView.setSpeedListener { speed ->
+            binding.tvSpeed.text = "$speed km/h"
+        }
     }
 }

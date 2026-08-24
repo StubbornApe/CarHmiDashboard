@@ -24,4 +24,17 @@ object HmiDimens {
     const val NUMBER_GAP_DP = 16f            // 数字到主刻度内侧的间距
     const val CENTER_CIRCLE_RADIUS_DP = 12f  // 轴心外圆半径
     const val CENTER_CIRCLE_INNER_DP = 5f    // 轴心内圆半径
+
+    // ---- 指针（Day 3 新增） ----
+    const val POINTER_LENGTH_DP = 240f       // 指针头端长度（自轴心向外）
+    const val POINTER_TAIL_LENGTH_DP = 48f   // 指针配重尾长度（自轴心反向）
+    const val POINTER_WIDTH_DP = 10f         // 指针线宽
+
+    // ---- 触摸有效环带（Day 3 新增，3.5 使用） ----
+    const val TOUCH_RING_INNER_DP = 60f      // 有效触摸内半径（更靠里视为按在轴心，忽略）
+    const val TOUCH_RING_OUTER_SLOP_DP = 40f // 允许超出外环的容差（手指略画出表盘也算有效）
+
+    // ---- 表盘内单位 "km/h"（Day 3 新增） ----
+    const val UNIT_TEXT_SIZE_SP = 30f        // 单位字号
+    const val UNIT_CENTER_OFFSET_DP = 100f    // 距轴心圆心的纵向偏移（画在轴心下方）
 }
