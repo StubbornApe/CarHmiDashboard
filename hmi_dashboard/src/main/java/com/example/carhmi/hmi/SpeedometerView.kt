@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 
 /**
@@ -28,6 +29,35 @@ class SpeedometerView @JvmOverloads constructor(
         this.sweepAngle = sweepAngle
         invalidate()   // 配置变了必须请求重绘，否则画面不更新
     }
+    // ---- 当前速度（Day 3 新增；Day 4 将改由 ViewModel 的 StateFlow 驱动） ----
+    private var currentSpeed: Float = 60f
+
+    /**
+     * 设置当前速度：越界自动夹取到 [0, maxSpeed]，值有变化才重绘。
+     */
+    fun setSpeed(speed: Float) {
+        val clamped = speed.coerceIn(0f, maxSpeed.toFloat())
+        if (clamped == currentSpeed) return
+        currentSpeed = clamped
+        invalidate()
+        speedListener?.onSpeedChanged(angleMapper.displaySpeed(currentSpeed))
+    }
+
+    fun getSpeed(): Float = currentSpeed
+
+    /** 速度变化的监听回调（进阶挑战 1：让外部 TextView 跟着刷新；Day 4 会换成 StateFlow） */
+    fun interface OnSpeedChangedListener {
+        fun onSpeedChanged(displaySpeed: Int)
+    }
+
+    private var speedListener: OnSpeedChangedListener? = null
+
+    fun setSpeedListener(listener: OnSpeedChangedListener?) {
+        speedListener = listener
+    }
+
+    private fun center(of: Int): Float = of / 2f
+
     private companion object {
         const val MAJOR_STEP = 20            // 主刻度步进 km/h
         const val MINOR_STEP = 5            // 副刻度步进 km/h
@@ -85,10 +115,32 @@ class SpeedometerView @JvmOverloads constructor(
         color = 0xFF3F9BFF.toInt()
     }
 
+    // 表盘内单位 "km/h"（Day 3 新增）：半透明白，弱于指针/刻度
+    private val unitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x99FFFFFF.toInt()              // 60% 透明白
+        textSize = sp(HmiDimens.UNIT_TEXT_SIZE_SP)
+        textAlign = Paint.Align.CENTER          // 水平居中于中轴
+    }
+
+    // ---- 角度换算纯逻辑（Day 3 新增） ----
+    private val angleMapper = SpeedAngleMapper(maxSpeed, startAngle, sweepAngle)
+
+    // ---- 拖动状态（Day 3 新增） ----
+    private var isDragging = false
+    private var downTouchRadius = 0f       // DOWN 到手拉半径，供 3.5 环带判定
+
     init {
         if (DEMO_HALF_RANGE) {
             setRange(maxSpeed = 120, startAngle = 180f, sweepAngle = 180f)
         }
+    }
+
+    // 指针（Day 3 新增）：醒目橙红 + 圆端帽
+    private val pointerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(HmiDimens.POINTER_WIDTH_DP)
+        strokeCap = Paint.Cap.ROUND        // 线端收圆，避免尖锐锯齿
+        color = 0xFFFF5722.toInt()         // 橙红，与蓝弧/白刻度形成对比
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -101,8 +153,8 @@ class SpeedometerView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val cx = width / 2f
-        val cy = height / 2f
+        val cx = center(width)
+        val cy = center(height)
         val radius = cx - dp(HmiDimens.OUTER_RING_MARGIN_DP)
 
         // 1) 外环
@@ -124,9 +176,53 @@ class SpeedometerView @JvmOverloads constructor(
             drawNumbers(canvas, cx, cy, radius) // 三角函数定位，文本保持垂直不旋转
         }
 
-        // 5) 中心轴帽
+        // 5) 指针（Day 3 新增）：必须在中心轴帽之前画，让轴帽压住指针尾端
+        drawPointer(canvas, cx, cy)
+
+        // 6) 中心轴帽
         canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_CIRCLE_RADIUS_DP), centerOuterPaint)
         canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_CIRCLE_INNER_DP), centerInnerPaint)
+
+        // 7) 表盘内单位 "km/h"（轴心下方），0x99 = 半透明白
+        canvas.drawText(
+            "km/h",
+            cx,
+            cy + dp(HmiDimens.UNIT_CENTER_OFFSET_DP),
+            unitPaint
+        )
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                // 记录手指到圆心的半径，3.5 用它判定是否落在有效环带
+                val cx = center(width); val cy = center(height)
+                downTouchRadius = kotlin.math.hypot(
+                    (event.x - cx).toDouble(), (event.y - cy).toDouble()
+                ).toFloat()
+                if (!isInTouchZone(event.x, event.y, cx, cy)) {
+                    return false                 // 环带外 / 死区内：不消费，放行
+                }
+                isDragging = true
+                updateFromTouch(event.x, event.y)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (isDragging) updateFromTouch(event.getX(0), event.getY(0))
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                isDragging = false          // 必须复位，否则下一指被"鬼拖动"
+            }
+        }
+        return isDragging || super.onTouchEvent(event)
+    }
+
+    /** 触摸点 → 换算速度 → 重绘 */
+    private fun updateFromTouch(x: Float, y: Float) {
+        val cx = center(width); val cy = center(height)
+        val angle = angleFromTouch(x, y, cx, cy)
+        val speed = angleMapper.angleToSpeed(angle)
+        setSpeed(speed)                     // 内部做 clamp + 脏值检查 + invalidate
     }
 
     private fun shouldDrawMinor(i: Int): Boolean = i % (MAJOR_STEP / MINOR_STEP) != 0
@@ -205,5 +301,40 @@ class SpeedometerView @JvmOverloads constructor(
             )
             canvas.restore()
         }
+    }
+
+    private fun drawPointer(canvas: Canvas, cx: Float, cy: Float) {
+        val angle = speedToAngle(currentSpeed)
+        val head = dp(HmiDimens.POINTER_LENGTH_DP)
+        val tail = dp(HmiDimens.POINTER_TAIL_LENGTH_DP)
+
+        canvas.save()
+        canvas.rotate(angle, cx, cy)       // 转到目标角度：局部 +x 即该角度方向
+        canvas.drawLine(cx - tail, cy, cx + head, cy, pointerPaint)
+        canvas.restore()
+    }
+
+    /** 速度 → 表盘角度（委托 Mapper） */
+    private fun speedToAngle(speed: Float): Float = angleMapper.speedToAngle(speed)
+
+    /** 这一步临时保留接口名，为 3.5 把触摸换算统一走 Mapper 做铺垫 */
+    private fun angleFromTouch(x: Float, y: Float, cx: Float, cy: Float): Float =
+        angleMapper.angleFromTouch(x, y, cx, cy)
+
+    /** 触摸是否落在可拖动的有效区：半径在环带内 且 角度在量程内（跨0°拆分判定） */
+    private fun isInTouchZone(x: Float, y: Float, cx: Float, cy: Float): Boolean {
+        val inner = dp(HmiDimens.TOUCH_RING_INNER_DP)
+        val outer = center(width) - dp(HmiDimens.OUTER_RING_MARGIN_DP) + dp(HmiDimens.TOUCH_RING_OUTER_SLOP_DP)
+        if (!angleMapper.isInTouchRing(x, y, cx, cy, inner, outer)) return false
+
+        val deg = angleMapper.angleFromTouch(x, y, cx, cy)
+        return isInSweepRange(deg)
+    }
+
+    /** 量程是否为跨 0°（如 135→405）；是则两段式判定，否则直接区间比较 */
+    private fun isInSweepRange(deg: Float): Boolean {
+        val from = startAngle
+        val to = (startAngle + sweepAngle) % 360f
+        return if (from <= to) deg in from..to else (deg >= from || deg <= to)
     }
 }
