@@ -22,4 +22,5 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    testImplementation(libs.junit)   // 新增：com.example.carhmi.hmi 的 local unit test 依赖
 }

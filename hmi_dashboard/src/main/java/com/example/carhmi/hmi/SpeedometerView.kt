@@ -19,9 +19,43 @@ class SpeedometerView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     // ---- 量程配置（Day 4 将改为自定义属性） ----
-    private var maxSpeed: Int = 240         // 量程上限 km/h
-    private var startAngle: Float = 135f    // 表盘起点角（左下）
-    private var sweepAngle: Float = 270f    // 表盘扫掠角
+    private var maxSpeed = 0         // 量程上限 km/h
+    private var startAngle = 0f    // 表盘起点角（左下）
+    private var sweepAngle = 0f    // 表盘扫掠角
+
+    private companion object {
+        const val MAJOR_STEP = 20            // 主刻度步进 km/h
+        const val MINOR_STEP = 5            // 副刻度步进 km/h
+        const val USE_ARC_NUMBERS = true    // true=沿弧排布, false=垂直正立（3.4 样式）
+        const val DEMO_HALF_RANGE = false   // true=120 半量程(180°), false=240 全量程(270°)
+    }
+
+    // ---- 调试触摸开关（Day 4 新增）：true=可拖动定位（开发用），false=正式数据只读 ----
+    private var touchEnabled = false
+
+    fun setTouchEnabled(enabled: Boolean) {
+        touchEnabled = enabled
+    }
+
+    init {
+        // 从 XML 读取自定义属性；未写则回落默认值（旧布局因此保持兼容）
+        // 注意：不用 .use{}（TypedArray 的 AutoCloseable 需要 API 31，minSdk 28 不兼容），
+        // 改用 try/finally + recycle()（recycle 自 API 16 可用）
+        val typedArray = context.obtainStyledAttributes(
+            attrs, R.styleable.SpeedometerView, defStyleAttr, 0
+        )
+        try {
+            maxSpeed = typedArray.getInt(R.styleable.SpeedometerView_maxSpeed, 240)
+            startAngle = typedArray.getFloat(R.styleable.SpeedometerView_startAngle, 135f)
+            sweepAngle = typedArray.getFloat(R.styleable.SpeedometerView_sweepAngle, 270f)
+            touchEnabled = typedArray.getBoolean(R.styleable.SpeedometerView_touchEnabled, true)
+        } finally {
+            typedArray.recycle()
+        }
+        if (DEMO_HALF_RANGE) {
+            setRange(maxSpeed = 120, startAngle = 180f, sweepAngle = 180f)
+        }
+    }
 
     fun setRange(maxSpeed: Int, startAngle: Float, sweepAngle: Float) {
         this.maxSpeed = maxSpeed
@@ -45,6 +79,8 @@ class SpeedometerView @JvmOverloads constructor(
 
     fun getSpeed(): Float = currentSpeed
 
+
+
     /** 速度变化的监听回调（进阶挑战 1：让外部 TextView 跟着刷新；Day 4 会换成 StateFlow） */
     fun interface OnSpeedChangedListener {
         fun onSpeedChanged(displaySpeed: Int)
@@ -57,13 +93,6 @@ class SpeedometerView @JvmOverloads constructor(
     }
 
     private fun center(of: Int): Float = of / 2f
-
-    private companion object {
-        const val MAJOR_STEP = 20            // 主刻度步进 km/h
-        const val MINOR_STEP = 5            // 副刻度步进 km/h
-        const val USE_ARC_NUMBERS = true    // true=沿弧排布, false=垂直正立（3.4 样式）
-        const val DEMO_HALF_RANGE = false   // true=120 半量程(180°), false=240 全量程(270°)
-    }
 
     // ---- 新增：尺寸换算（依赖 Context 的 DisplayMetrics） ----
     private val density = resources.displayMetrics.density
@@ -122,18 +151,12 @@ class SpeedometerView @JvmOverloads constructor(
         textAlign = Paint.Align.CENTER          // 水平居中于中轴
     }
 
-    // ---- 角度换算纯逻辑（Day 3 新增） ----
-    private val angleMapper = SpeedAngleMapper(maxSpeed, startAngle, sweepAngle)
+    // ---- 角度换算纯逻辑（改为 by lazy：等量程参数在 init 赋值后再创建） ----
+    private val angleMapper by lazy { SpeedAngleMapper(maxSpeed, startAngle, sweepAngle) }
 
     // ---- 拖动状态（Day 3 新增） ----
     private var isDragging = false
     private var downTouchRadius = 0f       // DOWN 到手拉半径，供 3.5 环带判定
-
-    init {
-        if (DEMO_HALF_RANGE) {
-            setRange(maxSpeed = 120, startAngle = 180f, sweepAngle = 180f)
-        }
-    }
 
     // 指针（Day 3 新增）：醒目橙红 + 圆端帽
     private val pointerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -195,17 +218,9 @@ class SpeedometerView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                // 记录手指到圆心的半径，3.5 用它判定是否落在有效环带
-                val cx = center(width); val cy = center(height)
-                downTouchRadius = kotlin.math.hypot(
-                    (event.x - cx).toDouble(), (event.y - cy).toDouble()
-                ).toFloat()
-                if (!isInTouchZone(event.x, event.y, cx, cy)) {
-                    return false                 // 环带外 / 死区内：不消费，放行
-                }
-                isDragging = true
-                updateFromTouch(event.x, event.y)
-                return true
+                if (!touchEnabled) return false                       // 调试开关关闭：不响应触摸
+                if (onDownInterceptor(event.x, event.y)) return true  // 有效拖动：消费并继续收后续事件
+                return false                                          // 环带外 / 死区内：不消费，放行
             }
             MotionEvent.ACTION_MOVE -> {
                 if (isDragging) updateFromTouch(event.getX(0), event.getY(0))
@@ -215,6 +230,15 @@ class SpeedometerView @JvmOverloads constructor(
             }
         }
         return isDragging || super.onTouchEvent(event)
+    }
+    /** 原 DOWN 分支体抽出的方法：环带判定 + 置拖动态 + 换算速度；true=本次 DOWN 被消费（进入拖动） */
+    private fun onDownInterceptor(x: Float, y: Float): Boolean {
+        val cx = center(width); val cy = center(height)
+        downTouchRadius = kotlin.math.hypot((x - cx).toDouble(), (y - cy).toDouble()).toFloat()
+        if (!isInTouchZone(x, y, cx, cy)) return false
+        isDragging = true
+        updateFromTouch(x, y)
+        return true
     }
 
     /** 触摸点 → 换算速度 → 重绘 */

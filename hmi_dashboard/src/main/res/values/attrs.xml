@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SpeedometerView 可配置属性：量程三参数 -->
+    <declare-styleable name="SpeedometerView">
+        <attr name="maxSpeed" format="integer" />   <!-- 量程上限 km/h，默认 240 -->
+        <attr name="startAngle" format="float" />   <!-- 表盘起点角，默认 135°（左下） -->
+        <attr name="sweepAngle" format="float" />   <!-- 表盘扫掠角，默认 270° -->
+        <attr name="touchEnabled" format="boolean" />   <!-- 调试触摸开关，默认 true -->
+    </declare-styleable>
+</resources>
