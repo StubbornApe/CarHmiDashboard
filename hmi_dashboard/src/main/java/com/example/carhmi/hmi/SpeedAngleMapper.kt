@@ -13,6 +13,11 @@ class SpeedAngleMapper(
     private val startAngle: Float,
     private val sweepAngle: Float
 ) {
+    init {
+        require(maxSpeed > 0) { "maxSpeed 必须大于 0, 实际=$maxSpeed" }
+        require(sweepAngle in 1f..360f) { "sweepAngle 必须在 (0,360], 实际=$sweepAngle" }
+        require(startAngle in 0f..360f) { "startAngle 必须在 [0,360], 实际=$startAngle" }
+    }
 
     /** 速度 → 表盘角度（用于画指针） */
     fun speedToAngle(speed: Float): Float =
