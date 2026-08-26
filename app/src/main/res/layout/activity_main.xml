@@ -14,7 +14,8 @@
         app:maxSpeed="240"
         app:startAngle="135"
         app:sweepAngle="270"
-        app:touchEnabled="false"/>
+        app:touchEnabled="false"
+        app:numberFontFamily="sans-serif-condensed" />
 
     <TextView
         android:id="@+id/tvSpeed"
@@ -24,6 +25,7 @@
         android:text="60 km/h"
         android:textSize="34sp"
         android:textColor="#FFFFFF"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:visibility="gone"/>
 
 </LinearLayout>
