@@ -6,5 +6,6 @@
         <attr name="startAngle" format="float" />   <!-- 表盘起点角，默认 135°（左下） -->
         <attr name="sweepAngle" format="float" />   <!-- 表盘扫掠角，默认 270° -->
         <attr name="touchEnabled" format="boolean" />   <!-- 调试触摸开关，默认 true -->
+        <attr name="numberFontFamily" format="string" />   <!-- 数字字体族，默认 sans-serif-condensed -->
     </declare-styleable>
 </resources>

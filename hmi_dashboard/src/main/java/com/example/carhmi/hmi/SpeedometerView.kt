@@ -2,6 +2,12 @@ package com.example.carhmi.hmi
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Matrix
+import android.graphics.Path
+import android.graphics.Shader
+import android.graphics.SweepGradient
+import android.graphics.Typeface
 import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -22,11 +28,12 @@ class SpeedometerView @JvmOverloads constructor(
     private var maxSpeed = 0         // 量程上限 km/h
     private var startAngle = 0f    // 表盘起点角（左下）
     private var sweepAngle = 0f    // 表盘扫掠角
+    private var numberFontFamily = "sans-serif-condensed"   // 数字字体族（attrs 可覆盖，Day 5 新增）
 
     private companion object {
         const val MAJOR_STEP = 20            // 主刻度步进 km/h
         const val MINOR_STEP = 5            // 副刻度步进 km/h
-        const val USE_ARC_NUMBERS = true    // true=沿弧排布, false=垂直正立（3.4 样式）
+        const val USE_ARC_NUMBERS = false    // true=沿弧排布, false=垂直正立（3.4 样式）
         const val DEMO_HALF_RANGE = false   // true=120 半量程(180°), false=240 全量程(270°)
     }
 
@@ -49,6 +56,8 @@ class SpeedometerView @JvmOverloads constructor(
             startAngle = typedArray.getFloat(R.styleable.SpeedometerView_startAngle, 135f)
             sweepAngle = typedArray.getFloat(R.styleable.SpeedometerView_sweepAngle, 270f)
             touchEnabled = typedArray.getBoolean(R.styleable.SpeedometerView_touchEnabled, true)
+            numberFontFamily = typedArray.getString(R.styleable.SpeedometerView_numberFontFamily)
+                ?: "sans-serif-condensed"
         } finally {
             typedArray.recycle()
         }
@@ -62,6 +71,9 @@ class SpeedometerView @JvmOverloads constructor(
         this.startAngle = startAngle
         this.sweepAngle = sweepAngle
         invalidate()   // 配置变了必须请求重绘，否则画面不更新
+        if (width > 0 && height > 0) {      // 已有尺寸才重建（首次 layout 前 onSizeChanged 会做）
+            buildGradientShaders(center(width), center(height))
+        }
     }
     // ---- 当前速度（Day 3 新增；Day 4 将改由 ViewModel 的 StateFlow 驱动） ----
     private var currentSpeed: Float = 60f
@@ -104,7 +116,7 @@ class SpeedometerView @JvmOverloads constructor(
     private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(HmiDimens.OUTER_RING_WIDTH_DP)
-        color = 0xFF3A3A3A.toInt()          // 新增：显式外环颜色（深灰）
+        color = 0xFF3A3A3A.toInt()          // 显式外环颜色（深灰）
     }
 
     private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -132,16 +144,34 @@ class SpeedometerView @JvmOverloads constructor(
         color = 0xFFFFFFFF.toInt()
         textSize = sp(HmiDimens.NUMBER_TEXT_SIZE_SP)
         textAlign = Paint.Align.CENTER      // 数字水平居中于定位点
+        typeface = Typeface.create(numberFontFamily, Typeface.BOLD)   // Day 5：数字窄体加粗
+    }
+
+    // 当前车速大数字（Day 5 v3.1）：白色 condensed 加粗，显示在下方 45°~135° 缺口区
+    private val speedValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFF7F7F7.toInt()              // 近白，比刻度数字更亮、主次分明
+        textSize = sp(HmiDimens.SPEED_VALUE_TEXT_SIZE_SP)
+        textAlign = Paint.Align.CENTER          // 水平居中于表盘中轴
+        typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)  // 仪表数字专用窄体
     }
 
     // 中心轴帽（外深灰 + 内蓝，FILL 实心）
     private val centerOuterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xFF3F3F3F.toInt()
+        color = 0xFF3F3F3F.toInt()         // 内芯深灰
     }
-    private val centerInnerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // 轴心金属环：STROKE 灰渐变由 buildGradientShaders 设置
+    private val centerRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(HmiDimens.CENTER_RING_WIDTH_DP)
+    }
+    private val centerHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xFF3F9BFF.toInt()
+        color = 0x99FFFFFF.toInt()         // 60% 白，表冠反光
+    }
+    private val pointerBasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = 0xFFF2F2F2.toInt()         // 与指针主体一致的亮银白，根部底衬
     }
 
     // 表盘内单位 "km/h"（Day 3 新增）：半透明白，弱于指针/刻度
@@ -149,21 +179,28 @@ class SpeedometerView @JvmOverloads constructor(
         color = 0x99FFFFFF.toInt()              // 60% 透明白
         textSize = sp(HmiDimens.UNIT_TEXT_SIZE_SP)
         textAlign = Paint.Align.CENTER          // 水平居中于中轴
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)   // Day 5：单位中等字重
     }
 
     // ---- 角度换算纯逻辑（改为 by lazy：等量程参数在 init 赋值后再创建） ----
     private val angleMapper by lazy { SpeedAngleMapper(maxSpeed, startAngle, sweepAngle) }
 
+    // ---- 刻度布局纯逻辑（Day 5 新增，by lazy：量程参数在 init 赋值后再创建） ----
+    private val tickMapper by lazy { TickMapper(maxSpeed, startAngle, sweepAngle) }
+
     // ---- 拖动状态（Day 3 新增） ----
     private var isDragging = false
     private var downTouchRadius = 0f       // DOWN 到手拉半径，供 3.5 环带判定
 
-    // 指针（Day 3 新增）：醒目橙红 + 圆端帽
+    // 指针（Day 5 v3）：亮银白主体 FILL + 浅灰细描边（深色表盘用白指针，与渐变弧零冲突）
     private val pointerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = 0xFFF2F2F2.toInt()         // 亮银白，车载仪表标准指针色
+    }
+    private val pointerEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = dp(HmiDimens.POINTER_WIDTH_DP)
-        strokeCap = Paint.Cap.ROUND        // 线端收圆，避免尖锐锯齿
-        color = 0xFFFF5722.toInt()         // 橙红，与蓝弧/白刻度形成对比
+        strokeWidth = dp(2f)               // 细描边压出轮廓
+        color = 0xFFBDBDBD.toInt()         // 浅灰描边，柔和收边
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -174,14 +211,22 @@ class SpeedometerView @JvmOverloads constructor(
         setMeasuredDimension(resolved, resolved)
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        buildGradientShaders(center(w), center(h))   // cx/cy 此时已确定，构建一次即可
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val cx = center(width)
         val cy = center(height)
         val radius = cx - dp(HmiDimens.OUTER_RING_MARGIN_DP)
 
-        // 1) 外环
-        canvas.drawCircle(cx, cy, radius, ringPaint)
+        // 1) 外环：开口弧，端口向死区方向延伸至 0/240 刻度线处齐平（封口）
+        canvas.drawArc(
+            cx - radius, cy - radius, cx + radius, cy + radius,
+            startAngle, sweepAngle, false, ringPaint
+        )
 
         // 2) 270° 量程弧（135° 起顺时针）
         canvas.drawArc(
@@ -202,11 +247,24 @@ class SpeedometerView @JvmOverloads constructor(
         // 5) 指针（Day 3 新增）：必须在中心轴帽之前画，让轴帽压住指针尾端
         drawPointer(canvas, cx, cy)
 
-        // 6) 中心轴帽
-        canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_CIRCLE_RADIUS_DP), centerOuterPaint)
-        canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_CIRCLE_INNER_DP), centerInnerPaint)
+        // 6) 指针根部底衬（亮银白，尾端过渡进轴心）
+        canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_BASE_RADIUS_DP), pointerBasePaint)
+        // 7) 轴心金属外环（灰渐变机芯环）
+        canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_CIRCLE_RADIUS_DP), centerRingPaint)
+        // 8) 轴心内芯（深灰实心）
+        canvas.drawCircle(cx, cy, dp(HmiDimens.CENTER_INNER_RADIUS_DP), centerOuterPaint)
+        // 9) 内芯高光（左上一小点，模拟表冠反光）
+        canvas.drawCircle(
+            cx - dp(HmiDimens.CENTER_HIGHLIGHT_DX_DP),
+            cy - dp(HmiDimens.CENTER_HIGHLIGHT_DY_DP),
+            dp(HmiDimens.CENTER_HIGHLIGHT_RADIUS_DP),
+            centerHighlightPaint
+        )
 
-        // 7) 表盘内单位 "km/h"（轴心下方），0x99 = 半透明白
+        // 10) 当前车速大数字（量程弧中点 270° 正上方内侧，文字保持水平）
+        drawCurrentSpeed(canvas, cx, cy, radius)
+
+        // 11) 表盘内单位 "km/h"（轴心下方），0x99 = 半透明白
         canvas.drawText(
             "km/h",
             cx,
@@ -250,28 +308,79 @@ class SpeedometerView @JvmOverloads constructor(
     }
 
     private fun shouldDrawMinor(i: Int): Boolean = i % (MAJOR_STEP / MINOR_STEP) != 0
+
+    /**
+     * 构建并设置两个 Shader（Day 5 新增）：
+     * 1) 量程弧 SweepGradient：绿→黄→红，用 positions 压缩到量程覆盖比，setLocalMatrix 对齐弧起点；
+     * 2) 单位文字 LinearGradient：上白→下半透明的纵向渐变。
+     */
+    private fun buildGradientShaders(cx: Float, cy: Float) {
+        // —— 量程弧：SweepGradient（起点=绿、弧正中=黄、终点=红）——
+        val coverage = sweepAngle / 360f                       // 0.75：弧占圆周比
+        val sweep = SweepGradient(
+            cx, cy,
+            GradientColors.COLORS,                             // [绿, 黄, 红]
+            floatArrayOf(0f, 0.5f * coverage, coverage)        // [0, 0.375, 0.75]
+        )
+        val matrix = Matrix().apply { postRotate(startAngle, cx, cy) }  // 0°→startAngle
+        sweep.setLocalMatrix(matrix)
+        arcPaint.shader = sweep
+
+        // —— 单位文字 "km/h"：LinearGradient 纵向 白→半透明白 ——
+        val top = cy - dp(HmiDimens.UNIT_CENTER_OFFSET_DP) - sp(HmiDimens.UNIT_TEXT_SIZE_SP)
+        val bottom = cy + dp(HmiDimens.UNIT_CENTER_OFFSET_DP) + sp(HmiDimens.UNIT_TEXT_SIZE_SP)
+        unitPaint.shader = LinearGradient(
+            cx, top, cx, bottom,
+            intArrayOf(0xFFFFFFFF.toInt(), 0x66FFFFFF.toInt()),  // 白 → 40% 透明白
+            null,
+            Shader.TileMode.CLAMP
+        )
+
+        // —— 轴心金属环：SweepGradient 灰渐变（机芯质感）——
+        centerRingPaint.shader = SweepGradient(
+            cx, cy,
+            intArrayOf(
+                0xFFE8E8E8.toInt(),   // 亮灰（0°）
+                0xFF8E8E8E.toInt(),   // 中灰（90°）
+                0xFF424242.toInt(),   // 深灰（180°）
+                0xFFE8E8E8.toInt()    // 回亮（270° 起闭合）
+            ),
+            null
+        )
+    }
+
     private fun drawTicks(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
-        // 主刻度：0~240 步进 20，共 13 根，间隔 22.5°
+        // 副刻度（底层）：每 5 km/h，灰色弱化，跳过主刻度位置
         canvas.save()
         canvas.rotate(startAngle, cx, cy)
-        val majorTickCount = maxSpeed / MAJOR_STEP               // 12 段
-        val majorStepAngle = sweepAngle / majorTickCount         // 22.5°
-        for (i in 0..majorTickCount) {
-            drawOneTick(canvas, cx, cy, radius, HmiDimens.MAJOR_TICK_LENGTH_DP, majorTickPaint)
-            canvas.rotate(majorStepAngle, cx, cy)
+        val minorStep = tickMapper.stepAngle(MINOR_STEP)
+        for (i in 0..tickMapper.tickCount(MINOR_STEP)) {
+            if (!tickMapper.isMajorIndex(i, MAJOR_STEP, MINOR_STEP)) {
+                drawOneTick(canvas, cx, cy, radius, HmiDimens.MINOR_TICK_LENGTH_DP, minorTickPaint)
+            }
+            canvas.rotate(minorStep, cx, cy)
         }
         canvas.restore()
 
-        // 副刻度：0~240 步进 10，跳过与主刻度重叠的位置，间隔 11.25°
+        // 主刻度（上层）：每 20 km/h，颜色按渐变分档（低速绿 → 中速黄 → 高速红）
         canvas.save()
         canvas.rotate(startAngle, cx, cy)
-        val minorTickCount = maxSpeed / MINOR_STEP               // 24 段
-        val minorStepAngle = sweepAngle / minorTickCount         // 11.25°
-        for (i in 0..minorTickCount) {
-            if (shouldDrawMinor(i)) {             // 跳过主刻度位置
-                drawOneTick(canvas, cx, cy, radius, HmiDimens.MINOR_TICK_LENGTH_DP, minorTickPaint)
-            }
-            canvas.rotate(minorStepAngle, cx, cy)
+        val majorStep = tickMapper.stepAngle(MAJOR_STEP)
+        val majorTickCount = tickMapper.tickCount(MAJOR_STEP)
+        for (i in 0..majorTickCount) {
+            val speed = tickMapper.speedAtTick(i, MAJOR_STEP).toFloat()
+            majorTickPaint.color = GradientColors.interpolate(
+                tickMapper.fractionForSpeed(speed)
+            )
+            // 0/240 端点刻度：外端向表盘外伸出至色环外径（radius+6），叠在灰环端口上形成封口
+            val outerAdjustDp = if (i == 0 || i == majorTickCount) {
+                -HmiDimens.ARC_WIDTH_DP / 2f
+            } else 0f
+            drawOneTick(
+                canvas, cx, cy, radius,
+                HmiDimens.MAJOR_TICK_LENGTH_DP, majorTickPaint, outerAdjustDp
+            )
+            canvas.rotate(majorStep, cx, cy)
         }
         canvas.restore()
     }
@@ -281,11 +390,14 @@ class SpeedometerView @JvmOverloads constructor(
         cy: Float,
         radius: Float,
         lengthDp: Float,
-        paint: Paint
+        paint: Paint,
+        outerAdjustDp: Float = 0f
     ) {
         // 沿局部 +x（正右方）从外圈向内画线段：旋转后该方向 = rotate 角度
-        val inner = radius - dp(lengthDp)
-        canvas.drawLine(cx + radius, cy, cx + inner, cy, paint)
+        // outerAdjustDp 表示外端偏移：正数=向圆心内缩，负数=向表盘外伸出（用于 0/240 封住灰环端口）
+        val outer = radius - dp(outerAdjustDp)
+        val inner = outer - dp(lengthDp)
+        canvas.drawLine(cx + outer, cy, cx + inner, cy, paint)
     }
     private fun drawNumbers(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         // 文本垂直居中修正：基线 y = 目标圆心方向点 - (ascent + descent) / 2
@@ -327,14 +439,44 @@ class SpeedometerView @JvmOverloads constructor(
         }
     }
 
+    /** 当前车速大数字（Day 5 v3.3）：显示在 90°（正下方）弧内侧偏上，文字保持水平 */
+    private fun drawCurrentSpeed(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val text = currentSpeed.toInt().toString()
+        // 90° = 正下方（Android 角度：0° 三点、顺时针旋转，90° 六点即正下）
+        val rad = Math.toRadians(90.0)
+        // 半径：比刻度数字环内缩一格（36+16+28=80dp）再上提 16dp → 弧内侧偏上
+        val r = radius - dp(
+            HmiDimens.MAJOR_TICK_LENGTH_DP + HmiDimens.NUMBER_GAP_DP +
+                HmiDimens.SPEED_VALUE_ARC_GAP_DP + HmiDimens.SPEED_VALUE_LIFT_DP
+        )
+        val x = cx + (r * Math.cos(rad)).toFloat()
+        val y = cy + (r * Math.sin(rad)).toFloat()
+        val fm = speedValuePaint.fontMetrics
+        // baseline = 顶底中线修正，保证文字垂直居中于定位点
+        val baseline = y - (fm.ascent + fm.descent) / 2f
+        canvas.drawText(text, x, baseline, speedValuePaint)
+    }
+
     private fun drawPointer(canvas: Canvas, cx: Float, cy: Float) {
         val angle = speedToAngle(currentSpeed)
-        val head = dp(HmiDimens.POINTER_LENGTH_DP)
-        val tail = dp(HmiDimens.POINTER_TAIL_LENGTH_DP)
+        val head = dp(HmiDimens.POINTER_LENGTH_DP)        // 尖端径向距离
+        val tail = dp(HmiDimens.POINTER_TAIL_LENGTH_DP)   // 尾部径向距离
+        val halfW = dp(HmiDimens.POINTER_WIDTH_DP)        // 最宽处半宽（总宽 = 2×halfW）
+        val sideX = head * 0.55f                          // 最宽处 x：轴心前中段，前后都收尖
+
+        // 梭形指针：尖端(head,0) → 最宽处(sideX,±halfW) → 尾点(-tail,0)
+        val path = Path()
+        path.moveTo(head, 0f)
+        path.lineTo(sideX, halfW)
+        path.lineTo(-tail, 0f)
+        path.lineTo(sideX, -halfW)
+        path.close()
 
         canvas.save()
-        canvas.rotate(angle, cx, cy)       // 转到目标角度：局部 +x 即该角度方向
-        canvas.drawLine(cx - tail, cy, cx + head, cy, pointerPaint)
+        canvas.translate(cx, cy)            // 1) 原点移到轴心（Path 用局部坐标，必须先平移！）
+        canvas.rotate(angle)                // 2) 旋转：局部 +x 指向目标角度
+        canvas.drawPath(path, pointerPaint)      // 头尖指向目标刻度
+        canvas.drawPath(path, pointerEdgePaint)  // 细描边压轮廓，避免纯色平涂发闷
         canvas.restore()
     }
 

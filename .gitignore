@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# 本地构建日志与 Kotlin 增量缓存（不入库）
+.kotlin/
+day5_*.log
+
+# 根目录调试截图（Day 5 视觉打磨过程产物，不入库；正式截图走 notes/screenshots/）
+/*.png
