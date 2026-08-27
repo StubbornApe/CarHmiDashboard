@@ -17,15 +17,30 @@
         app:touchEnabled="false"
         app:numberFontFamily="sans-serif-condensed" />
 
-    <TextView
-        android:id="@+id/tvSpeed"
-        android:layout_width="wrap_content"
+    <!-- 按钮区（Day 6）：一行均分等宽大按钮，铺满整行、水平居中与表盘对齐；任意屏宽都不偏左、无滚动 -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="60 km/h"
-        android:textSize="34sp"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"
-        android:visibility="gone"/>
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingHorizontal="8dp">
+
+        <Button android:id="@+id/btnAccel" android:layout_width="0dp"
+            android:layout_height="60dp" android:layout_weight="1"
+            android:textSize="16sp" android:textAllCaps="false" android:text="缓动Accel" />
+        <Button android:id="@+id/btnOvershoot" android:layout_width="0dp"
+            android:layout_height="60dp" android:layout_weight="1"
+            android:textSize="16sp" android:textAllCaps="false" android:text="过冲Over" />
+        <Button android:id="@+id/btnAnticipate" android:layout_width="0dp"
+            android:layout_height="60dp" android:layout_weight="1"
+            android:textSize="16sp" android:textAllCaps="false" android:text="蓄力Anti" />
+        <Button android:id="@+id/btnPath" android:layout_width="0dp"
+            android:layout_height="60dp" android:layout_weight="1"
+            android:textSize="16sp" android:textAllCaps="false" android:text="贝塞尔Bezier" />
+        <Button android:id="@+id/btnSimulate" android:layout_width="0dp"
+            android:layout_height="60dp" android:layout_weight="1"
+            android:textSize="16sp" android:textAllCaps="false" android:text="自动跟车" />
+    </LinearLayout>
+
 
 </LinearLayout>
