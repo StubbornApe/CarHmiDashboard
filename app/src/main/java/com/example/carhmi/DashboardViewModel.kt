@@ -35,7 +35,7 @@ class DashboardViewModel : ViewModel() {
             var phase = 0          // 0=爬升，1=减速
             while (isActive) {     // 协作式：作用域取消时退出
                 updateSpeed(speed)                  // 走唯一写入口（含夹取）
-                delay(50)                        // 每 150ms 下发一次，~6.7Hz
+                delay(150)                        // 每 150ms 下发一次，~6.7Hz
                 speed = if (phase == 0) (speed + 3f).coerceIn(0f, MAX_SPEED)
                 else (speed - 3f).coerceIn(0f, MAX_SPEED)
                 if (speed >= MAX_SPEED) phase = 1

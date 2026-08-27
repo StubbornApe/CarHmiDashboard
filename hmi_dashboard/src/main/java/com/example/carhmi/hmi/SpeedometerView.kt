@@ -12,6 +12,9 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.animation.ValueAnimator
+import android.animation.TimeInterpolator
+import android.view.animation.AccelerateDecelerateInterpolator
 
 /**
  * 圆形速度表（Day 2 版）：
@@ -78,15 +81,43 @@ class SpeedometerView @JvmOverloads constructor(
     // ---- 当前速度（Day 3 新增；Day 4 将改由 ViewModel 的 StateFlow 驱动） ----
     private var currentSpeed: Float = 60f
 
+    // ---- 指针过渡动画（Day 6 新增）：默认平滑曲线，可切换 Interpolator ----
+    private var animator: ValueAnimator? = null
+    private var interpolator: TimeInterpolator = AccelerateDecelerateInterpolator()
+    private var animDurationMs = 900L                 // 单次平滑过渡时长
+
+    /** 设置指针过渡曲线（如 Accelerate/Overshoot/Anticipate/PathInterpolator），下次动画生效 */
+    fun setInterpolator(curve: TimeInterpolator) {
+        interpolator = curve
+    }
+
     /**
      * 设置当前速度：越界自动夹取到 [0, maxSpeed]，值有变化才重绘。
      */
     fun setSpeed(speed: Float) {
-        val clamped = speed.coerceIn(0f, maxSpeed.toFloat())
-        if (clamped == currentSpeed) return
-        currentSpeed = clamped
+        val target = speed.coerceIn(0f, maxSpeed.toFloat())
+        if (target == currentSpeed) return        // 与当前一致：不启动动画（避免空转）
+        // 动画中断：取消旧动画，从「当前实际动画帧的值」起一段新动画，保证指针连续不倒退
+        animator?.cancel()
+        val curve = interpolator                  // 提前取出，避免在 apply 块里语义混淆
+        animator = ValueAnimator.ofFloat(currentSpeed, target).apply {
+            duration = animDurationMs
+            interpolator = curve                 // 用 View 配置好的过渡曲线
+            addUpdateListener { va ->
+                currentSpeed = va.animatedValue as Float   // 每帧的瞬时速度
+                speedListener?.onSpeedChanged(angleMapper.displaySpeed(currentSpeed))
+                invalidate()                             // 重画指针（与 onDraw 同步）
+            }
+            start()
+        }
+    }
+
+    /** 瞬间设定当前速度（不带动画）：用于演示前复位到统一起点，避免"目标==当前"导致动画空转 */
+    fun setSpeedImmediate(speed: Float) {
+        animator?.cancel()                              // 先停掉可能存在的动画，避免残留
+        currentSpeed = speed.coerceIn(0f, maxSpeed.toFloat())
+        speedListener?.onSpeedChanged(angleMapper.displaySpeed(currentSpeed))   // 同步刷新外部数字
         invalidate()
-        speedListener?.onSpeedChanged(angleMapper.displaySpeed(currentSpeed))
     }
 
     fun getSpeed(): Float = currentSpeed
@@ -441,7 +472,9 @@ class SpeedometerView @JvmOverloads constructor(
 
     /** 当前车速大数字（Day 5 v3.3）：显示在 90°（正下方）弧内侧偏上，文字保持水平 */
     private fun drawCurrentSpeed(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
-        val text = currentSpeed.toInt().toString()
+        // 仅钳数字到 [0,maxSpeed]：避免 Overshoot/Anticipate 越界时显示负数/超240。
+        // 指针仍按插值器原始值摆动，保留"冲出再回弹/先退后冲"的手感。
+        val text = currentSpeed.coerceIn(0f, maxSpeed.toFloat()).toInt().toString()
         // 90° = 正下方（Android 角度：0° 三点、顺时针旋转，90° 六点即正下）
         val rad = Math.toRadians(90.0)
         // 半径：比刻度数字环内缩一格（36+16+28=80dp）再上提 16dp → 弧内侧偏上
