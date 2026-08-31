@@ -44,7 +44,7 @@ object HmiDimens {
 
     // ---- 表盘内单位 "km/h"（Day 3 新增） ----
     const val UNIT_TEXT_SIZE_SP = 30f        // 单位字号
-    const val UNIT_CENTER_OFFSET_DP = 100f    // 距轴心圆心的纵向偏移（画在轴心下方）
+    const val UNIT_CENTER_OFFSET_DP = 80f    // 距轴心圆心的纵向偏移（画在轴心下方）
 
     // ---- 当前车速大数字（Day 5：显示在 90° 正下方、弧内侧偏上） ----
     const val SPEED_VALUE_TEXT_SIZE_SP = 56f      // 当前车速大号数字字号

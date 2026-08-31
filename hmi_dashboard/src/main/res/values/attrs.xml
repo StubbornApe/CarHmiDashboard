@@ -8,4 +8,11 @@
         <attr name="touchEnabled" format="boolean" />   <!-- 调试触摸开关，默认 true -->
         <attr name="numberFontFamily" format="string" />   <!-- 数字字体族，默认 sans-serif-condensed -->
     </declare-styleable>
+
+    <!-- TachometerView 可配置属性（Day 7）：量程三参数，与 SpeedometerView 同构 -->
+    <declare-styleable name="TachometerView">
+        <attr name="maxRpm" format="integer" />   <!-- 量程上限 RPM，默认 8000 -->
+        <attr name="startAngle" />                <!-- 复用 SpeedometerView 已定义的 startAngle -->
+        <attr name="sweepAngle" />                <!-- 复用 SpeedometerView 已定义的 sweepAngle -->
+    </declare-styleable>
 </resources>

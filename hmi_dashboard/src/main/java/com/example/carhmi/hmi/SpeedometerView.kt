@@ -79,7 +79,7 @@ class SpeedometerView @JvmOverloads constructor(
         }
     }
     // ---- 当前速度（Day 3 新增；Day 4 将改由 ViewModel 的 StateFlow 驱动） ----
-    private var currentSpeed: Float = 60f
+    private var currentSpeed: Float = 0f
 
     // ---- 指针过渡动画（Day 6 新增）：默认平滑曲线，可切换 Interpolator ----
     private var animator: ValueAnimator? = null
@@ -238,8 +238,11 @@ class SpeedometerView @JvmOverloads constructor(
         val mode = MeasureSpec.getMode(widthMeasureSpec)
         val size = MeasureSpec.getSize(widthMeasureSpec)
         android.util.Log.d("Speedometer", "mode=$mode size=$size")
-        val resolved = resolveSize(dp(HmiDimens.SPEEDOMETER_SIZE_DP).toInt(), widthMeasureSpec)
-        setMeasuredDimension(resolved, resolved)
+        // Day 7 修复：宽/高双向取最小，横屏纵向空间不足时表盘自动收缩（demo 按钮常驻可见）
+        val desired = dp(HmiDimens.SPEEDOMETER_SIZE_DP).toInt()
+        val edge = minOf(resolveSize(desired, widthMeasureSpec),
+            resolveSize(desired, heightMeasureSpec))
+        setMeasuredDimension(edge, edge)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

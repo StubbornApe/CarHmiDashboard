@@ -29,11 +29,27 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 监听仪表数据：STARTED 时收集、STOPPED 时自动取消，值一变就驱动重绘
+        // 速度表：沿用 Day 6（指针平滑动画 + Interpolator 切换）
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.speed.collect { speed ->
                     binding.speedometerView.setSpeed(speed)   // 内部 invalidate()
+                }
+            }
+        }
+
+        // Day 7：转速表——双表联动（rpm 驱动指针/数字/进度环，gear 驱动档位标签）
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.rpm.collect { rpm ->
+                    binding.tachometerView.setRpm(rpm)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.gear.collect { gear ->
+                    binding.tachometerView.setGear(gearMapperLabel(gear))
                 }
             }
         }
@@ -71,4 +87,7 @@ class MainActivity : AppCompatActivity() {
         binding.speedometerView.setSpeedImmediate(0f)   // 先瞬间复位到统一起点 0，保证每条曲线都能完整演示
         binding.speedometerView.setSpeed(240f)           // 再从 0 平滑动画到 240
     }
+
+    /** 档位数字 → D1~D6 文案（贴近组件的 gearLabel 语义；也可直接在 View 内处理） */
+    private fun gearMapperLabel(gear: Int): String = "D$gear"
 }
