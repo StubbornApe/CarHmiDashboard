@@ -61,4 +61,28 @@ class InterpolatorCurvesTest {
         assertEquals(0f, InterpolatorCurves.easeInOut(-1f), 1e-4f)
         assertEquals(1f, InterpolatorCurves.easeInOut(2f), 1e-4f)
     }
+
+    // ---- Day 8 新增：动画进度计算 progress() ----
+
+    @Test
+    fun `progress 线性端点与中点`() {
+        assertEquals(0f, InterpolatorCurves.progress(0f, 240f, InterpolatorCurves::linear, 0f), 1e-4f)
+        assertEquals(120f, InterpolatorCurves.progress(0f, 240f, InterpolatorCurves::linear, 0.5f), 1e-4f)
+        assertEquals(240f, InterpolatorCurves.progress(0f, 240f, InterpolatorCurves::linear, 1f), 1e-4f)
+    }
+
+    @Test
+    fun `progress 过冲中间越界再收敛`() {
+        // ::overshoot 带默认参数，方法引用是 (Float,Float)->Float，需用 lambda 包装成 (Float)->Float
+        val mid = InterpolatorCurves.progress(0f, 240f, { t -> InterpolatorCurves.overshoot(t) }, 0.8f)
+        assertTrue("过冲中途应超过 end 240", mid > 240f)
+        assertEquals("t=1 收敛回 end", 240f,
+            InterpolatorCurves.progress(0f, 240f, { t -> InterpolatorCurves.overshoot(t) }, 1f), 1e-4f)
+    }
+
+    @Test
+    fun `progress 越界 t 夹取`() {
+        assertEquals(0f, InterpolatorCurves.progress(0f, 240f, InterpolatorCurves::linear, -1f), 1e-4f)
+        assertEquals(240f, InterpolatorCurves.progress(0f, 240f, InterpolatorCurves::linear, 2f), 1e-4f)
+    }
 }

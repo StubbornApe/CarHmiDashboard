@@ -49,6 +49,17 @@ object InterpolatorCurves {
         return bezierY((lo + hi) / 2f, y1, y2)
     }
 
+    /**
+     * 动画进度计算（Day 8 新增）：start → end 按 interpolator 取 t 时刻的插值。
+     * 这是 ValueAnimator「setCurrentFraction → 当前值」的纯数学内核：
+     * interpolator 把时间占比 t∈[0,1] 映射为进度 f(t)，再线性映射回 [start, end]。
+     * 过冲/蓄力曲线中途 f 会暂时 >1 或 <0，返回值相应越界——属预期，不是 bug。
+     */
+    fun progress(start: Float, end: Float, interpolator: (Float) -> Float, t: Float): Float {
+        val f = interpolator(t.coerceIn(0f, 1f))
+        return start + (end - start) * f
+    }
+
     // 二次形式贝塞尔 x(u) = 3(1-u)^2*u*x1 + 3(1-u)*u^2*x2 + u^3
     private fun bezierX(u: Float, x1: Float, x2: Float): Float {
         val v = 1f - u

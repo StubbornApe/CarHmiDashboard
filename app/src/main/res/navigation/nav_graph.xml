@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.example.carhmi.HomeFragment"
+        android:label="@string/home_title">
+        <action
+            android:id="@+id/action_home_to_dashboardDemo"
+            app:destination="@id/dashboardDemoFragment" />
+        <action
+            android:id="@+id/action_home_to_hvacDemo"
+            app:destination="@id/hvacDemoFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/dashboardDemoFragment"
+        android:name="com.example.carhmi.DashboardDemoFragment"
+        android:label="@string/dashboard_demo_title" />
+
+    <fragment
+        android:id="@+id/hvacDemoFragment"
+        android:name="com.example.carhmi.HvacDemoFragment"
+        android:label="@string/hvac_demo_title" />
+</navigation>

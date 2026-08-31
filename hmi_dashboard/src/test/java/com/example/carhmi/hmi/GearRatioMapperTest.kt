@@ -65,4 +65,23 @@ class GearRatioMapperTest {
         assertEquals("D6", GearRatioMapper().gearLabel(6))
         assertEquals("默认档位表有 6 档", 6, GearRatioMapper().gearCount)
     }
+
+    // ---- Day 8 新增：滞回 / 顶档边界用例（现象先钉死，滞回模型见进阶挑战）----
+
+    @Test
+    fun `顶档不继续升档`() {
+        val g = GearRatioMapper().shift(120f, 6)   // 默认 6 档表：D6 @120km/h = 3680 转
+        assertEquals("顶档不进则退", 6, g)        // 顶档不再升（连升 while 条件不满足）
+    }
+
+    @Test
+    fun `同速不连续升档`() {
+        assertEquals("60km/h 2 档 3800 不再升档", 2, mapper.shift(60f, 2))
+    }
+
+    @Test
+    fun `降档后转速抬升并稳定`() {
+        assertEquals("20km/h 2 档 1800 低于 2000 降 1 档", 1, mapper.shift(20f, 2))
+        assertTrue("降档后 1 档 2800 高于降档点", mapper.rpmOf(20f, 1) > 2000f)
+    }
 }

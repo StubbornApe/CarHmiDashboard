@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MotionScene xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- 过渡：start → end，时长 800ms；不设 autoTransition，先停在 start，由代码 5s 后 transitionToEnd() 触发 -->
+    <Transition
+        app:constraintSetStart="@+id/start"
+        app:constraintSetEnd="@+id/end"
+        app:duration="800" />
+
+    <!-- start：风扇图标居中，温度面板在底部、透明 -->
+    <ConstraintSet android:id="@+id/start">
+        <Constraint android:id="@+id/fanIcon"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_width="200dp" android:layout_height="200dp" />
+        <Constraint android:id="@+id/tempPanel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:alpha="0" />
+    </ConstraintSet>
+
+    <!-- end：风扇图标缩小上移，温度面板移入并渐变显示 -->
+    <ConstraintSet android:id="@+id/end">
+        <Constraint android:id="@+id/fanIcon"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            android:layout_width="160dp" android:layout_height="160dp"
+            android:layout_marginTop="24dp" />
+        <Constraint android:id="@+id/tempPanel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:alpha="1"
+            android:layout_marginBottom="32dp" />
+    </ConstraintSet>
+</MotionScene>
