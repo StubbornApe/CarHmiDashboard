@@ -7,15 +7,34 @@
     android:background="#1A1A1A"
     android:paddingTop="80dp">
 
-    <com.example.carhmi.hmi.SpeedometerView
-        android:id="@+id/speedometerView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:maxSpeed="240"
-        app:startAngle="135"
-        app:sweepAngle="270"
-        app:touchEnabled="false"
-        app:numberFontFamily="sans-serif-condensed" />
+    <!-- 双表并排行（Day 7 修复）：表盘区 0dp+weight=1 弹性占满剩余空间；速度表 + 转速表各自 weight=1 均分整行，demo 按钮行常驻底部可见 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <com.example.carhmi.hmi.SpeedometerView
+            android:id="@+id/speedometerView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:maxSpeed="240"
+            app:startAngle="135"
+            app:sweepAngle="270"
+            app:touchEnabled="false"
+            app:numberFontFamily="sans-serif-condensed" />
+
+        <com.example.carhmi.hmi.TachometerView
+            android:id="@+id/tachometerView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:maxRpm="8000"
+            app:startAngle="135"
+            app:sweepAngle="270" />
+    </LinearLayout>
 
     <!-- 按钮区（Day 6）：一行均分等宽大按钮，铺满整行、水平居中与表盘对齐；任意屏宽都不偏左、无滚动 -->
     <LinearLayout
