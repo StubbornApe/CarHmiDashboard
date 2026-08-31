@@ -1,65 +1,9 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.fragment.app.FragmentContainerView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_host_fragment"
+    android:name="androidx.navigation.fragment.NavHostFragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="#1A1A1A"
-    android:paddingTop="80dp">
-
-    <!-- 双表并排行（Day 7 修复）：表盘区 0dp+weight=1 弹性占满剩余空间；速度表 + 转速表各自 weight=1 均分整行，demo 按钮行常驻底部可见 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="horizontal"
-        android:gravity="center">
-
-        <com.example.carhmi.hmi.SpeedometerView
-            android:id="@+id/speedometerView"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            app:maxSpeed="240"
-            app:startAngle="135"
-            app:sweepAngle="270"
-            app:touchEnabled="false"
-            app:numberFontFamily="sans-serif-condensed" />
-
-        <com.example.carhmi.hmi.TachometerView
-            android:id="@+id/tachometerView"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            app:maxRpm="8000"
-            app:startAngle="135"
-            app:sweepAngle="270" />
-    </LinearLayout>
-
-    <!-- 按钮区（Day 6）：一行均分等宽大按钮，铺满整行、水平居中与表盘对齐；任意屏宽都不偏左、无滚动 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:paddingHorizontal="8dp">
-
-        <Button android:id="@+id/btnAccel" android:layout_width="0dp"
-            android:layout_height="60dp" android:layout_weight="1"
-            android:textSize="16sp" android:textAllCaps="false" android:text="缓动Accel" />
-        <Button android:id="@+id/btnOvershoot" android:layout_width="0dp"
-            android:layout_height="60dp" android:layout_weight="1"
-            android:textSize="16sp" android:textAllCaps="false" android:text="过冲Over" />
-        <Button android:id="@+id/btnAnticipate" android:layout_width="0dp"
-            android:layout_height="60dp" android:layout_weight="1"
-            android:textSize="16sp" android:textAllCaps="false" android:text="蓄力Anti" />
-        <Button android:id="@+id/btnPath" android:layout_width="0dp"
-            android:layout_height="60dp" android:layout_weight="1"
-            android:textSize="16sp" android:textAllCaps="false" android:text="贝塞尔Bezier" />
-        <Button android:id="@+id/btnSimulate" android:layout_width="0dp"
-            android:layout_height="60dp" android:layout_weight="1"
-            android:textSize="16sp" android:textAllCaps="false" android:text="自动跟车" />
-    </LinearLayout>
-
-
-</LinearLayout>
+    app:defaultNavHost="true"
+    app:navGraph="@navigation/nav_graph" />
