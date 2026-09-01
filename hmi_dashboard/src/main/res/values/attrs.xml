@@ -15,4 +15,12 @@
         <attr name="startAngle" />                <!-- 复用 SpeedometerView 已定义的 startAngle -->
         <attr name="sweepAngle" />                <!-- 复用 SpeedometerView 已定义的 sweepAngle -->
     </declare-styleable>
+
+    <!-- TemperatureStripView 可配置属性（Day 9）：量程三步进 -->
+    <declare-styleable name="TemperatureStripView">
+        <attr name="minTemp" format="float" />    <!-- 最低温 ℃，默认 16 -->
+        <attr name="maxTemp" format="float" />    <!-- 最高温 ℃，默认 32 -->
+        <attr name="stepTemp" format="float" />   <!-- 步进 ℃，默认 0.5 -->
+        <attr name="touchEnabled" />              <!-- 复用 SpeedometerView 已定义的 touchEnabled -->
+    </declare-styleable>
 </resources>

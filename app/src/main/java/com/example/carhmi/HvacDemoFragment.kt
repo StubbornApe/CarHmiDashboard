@@ -6,7 +6,6 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.SeekBar
 import androidx.constraintlayout.motion.widget.MotionLayout
 import androidx.fragment.app.Fragment
 import com.example.carhmi.databinding.FragmentHvacDemoBinding
@@ -55,15 +54,12 @@ class HvacDemoFragment : Fragment() {
             ) = Unit
         })
 
-        // 温度滑块：拖动实时改温度文字（SeekBar 0~30°C，初始 24），与自动过渡的进度映射互不干扰
-        binding.seekTemp.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                binding.tvTemp.text = "${progress}°C"
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        // 进阶挑战 3：温控条替换 seekTemp，拖动实时同步面板中部温度数字（组件自带 16~32℃/0.5℃ 步进/触觉）
+        // 0.5℃ 步进：整数档不带小数点显示（24），0.5 档位保留一位（24.5）
+        binding.tempStrip.onTempChangedListener = { temp ->
+            val text = if (temp % 1f == 0f) temp.toInt().toString() else temp.toString()
+            binding.tvTemp.text = "${text}°C"
+        }
 
         // 2s 后自动过渡到 end（对应 motion_scene 的 end 约束）
         handler.postDelayed(runnable, delayMillis)
