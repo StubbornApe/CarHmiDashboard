@@ -14,6 +14,9 @@
         <action
             android:id="@+id/action_home_to_hvacDemo"
             app:destination="@id/hvacDemoFragment" />
+        <action
+            android:id="@+id/action_home_to_temperatureDemo"
+            app:destination="@id/temperatureDemoFragment" />
     </fragment>
 
     <fragment
@@ -25,4 +28,9 @@
         android:id="@+id/hvacDemoFragment"
         android:name="com.example.carhmi.HvacDemoFragment"
         android:label="@string/hvac_demo_title" />
+
+    <fragment
+        android:id="@+id/temperatureDemoFragment"
+        android:name="com.example.carhmi.TemperatureDemoFragment"
+        android:label="@string/temperature_demo_title" />
 </navigation>

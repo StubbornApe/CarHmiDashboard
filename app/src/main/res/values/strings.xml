@@ -3,4 +3,5 @@
     <string name="home_title">车载 HMI 展示台</string>
     <string name="dashboard_demo_title">仪表盘 Demo</string>
     <string name="hvac_demo_title">空调面板 Demo</string>
+    <string name="temperature_demo_title">温度条 Demo</string>
 </resources>

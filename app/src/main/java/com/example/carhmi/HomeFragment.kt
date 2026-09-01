@@ -33,6 +33,7 @@ class HomeFragment : Fragment() {
             listOf(
                 DemoEntry("仪表盘 Demo（双表＋插值器）", R.id.action_home_to_dashboardDemo),
                 DemoEntry("空调面板 Demo（MotionLayout）", R.id.action_home_to_hvacDemo),
+                DemoEntry("温度条 Demo（温控交互＋触觉反馈）", R.id.action_home_to_temperatureDemo),
             )
         )
     }

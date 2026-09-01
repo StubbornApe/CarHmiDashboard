@@ -31,12 +31,15 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <SeekBar
-            android:id="@+id/seekTemp"
-            android:layout_width="match_parent"
+        <com.example.carhmi.hmi.TemperatureStripView
+            android:id="@+id/tempStrip"
+            android:layout_width="260dp"
             android:layout_height="wrap_content"
-            android:max="30"
-            android:progress="24" />
+            android:contentDescription="温度条，拖动调温（16~32℃，0.5℃ 步进）"
+            app:minTemp="16"
+            app:maxTemp="32"
+            app:stepTemp="0.5"
+            app:touchEnabled="true" />
 
         <TextView
             android:id="@+id/tvTemp"
